@@ -5,7 +5,7 @@ local m = {}
 local RS = game:GetService("RunService")
 --Type declarations
 export type MockedService = {PatchEvent:(MockedService,string)->nil, PatchFunction:(MockedService,string)->nil, [string]:BindableEvent}
---Config vars
+--Config vars 
 
 --Global vars
 local GlobalEnv = getfenv(0) --Stores the fenv before we call any mock methods so we can reset it if needed
