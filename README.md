@@ -10,6 +10,15 @@ Lyrebird.Mock(GlobalToMock:string, ReturnValues:{any}, depth:number) : {}
 Lyrebird.Reset() : nil
 Lyrebird.MockService(ServiceName:string, depth:number) : {}
 ```
+To mock a function just call the method. Any subsequent calls to the function being mocked will instead be made to the mock
+```lua
+local lyrebird = require(game.ReplicatedStorage.Lyrebird)
+lyrebird.Mock("math.random", {1,2,3,4,5})
+for i = 1,5 do
+  print(math.random(10))
+end
+```
+
 ### Mock
 Mock substitutes the GlobalToMock with a function that returns the ReturnValues array
 #### Arguments
