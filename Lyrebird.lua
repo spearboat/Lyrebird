@@ -229,12 +229,12 @@ function m.Reset(depth:nil|number) --Resets the environment back to the global e
 end
 
 local MockServiceMethods = {}
-MockServiceMethods.PatchEvent = function(self, EventName)
+MockServiceMethods.MockEvent = function(self, EventName)
 	if typeof(self[EventName]) ~= "RBXScriptSignal" then error(`{EventName} is not an event`) return end
 	self[EventName] = true
 	print(`Patched {EventName}`)
 end
-MockServiceMethods.PatchFunction = function(self, NameOfFunction,Func)
+MockServiceMethods.MockFunction = function(self, NameOfFunction,Func)
 	if self[NameOfFunction] == nil then error(`{NameOfFunction} is not a function that can be patched`) return end
 	if type(Func) ~= "function" then error(`Must provide a function to patch {NameOfFunction}`) return end
 	self[NameOfFunction] = Func
