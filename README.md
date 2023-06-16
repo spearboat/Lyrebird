@@ -10,7 +10,8 @@ Lyrebird.Mock(GlobalToMock:string, ReturnValues:{any}, depth:number) : {}
 Lyrebird.Reset() : nil
 Lyrebird.MockService(ServiceName:string, depth:number) : {}
 ```
-To mock a function just call the method. Any subsequent calls to the function being mocked will instead be made to the mock
+
+To mock a function just call the method, providing the path to the function as a string.<br>Any subsequent calls to the function being mocked will instead be made to the mock
 ```lua
 local lyrebird = require(game.ReplicatedStorage.Lyrebird)
 lyrebird.Mock("math.random", {1,2,3,4,5})
@@ -19,28 +20,5 @@ for i = 1,5 do
 end
 ```
 
-### Mock
-Mock substitutes the GlobalToMock with a function that returns the ReturnValues array
-#### Arguments
-| Argument Name | Description |
-| --- | --- |
-| GlobalToMock: string | A path to the global being mocked as a string. <br> For instance: ```"math.random"``` |
-| ReturnValues: array | An array of return values to be returned by the mocked function. <br> For instance: ```{1,2,3,4,5}``` |
-| Depth: number | Optional argument that specifies what layer of the function stack to apply the mocked environment to. <br> defaults to ```2``` |
-#### Returns
-| Return Name | Description |
-| --- | --- |
-| MockedEnvironment: table | The environment that Lyrebird created with the mocked functions |
-### Reset
-Reset undoes any mocked environments and resets it back to the default global environment
-### MockService
-MockService gives developers the ability to mimic existing Roblox services to allow firing events manually with customisable data
-#### Arguments
-| Argument Name | Description |
-| --- | --- |
-| ServiceName: string | The name of the service to be mocked.<br> For instance: ```"UserInputService"``` |
-| Depth: number | Optional argument that specifies what layer of the function stack to apply the mocked environment to. <br> defaults to ```2``` |
-#### Returns
-| Return Name | Description |
-| --- | --- |
-| MockedService: table | A table corresponding to the service was mocked |
+## Why the name?
+Lyrebirds are a group of birds with notable abilities to mimic surrounding sounds. I thought it was fitting to name a module designed to mimic environments after them
