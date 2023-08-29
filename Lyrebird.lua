@@ -1,11 +1,11 @@
 local m = {}
---Lyrebird v1.0
+--Lyrebird v1.0.1
 --This module is designed to facilitate testing by allowing fine control over mocking various events to emulate live gameplay
 --Dependencies
 local RS = game:GetService("RunService")
 --Type declarations
 export type MockedService = {PatchEvent:(MockedService,string)->nil, PatchFunction:(MockedService,string)->nil, [string]:BindableEvent}
---Config vars 
+--Config vars
 
 --Global vars
 local GlobalEnv = getfenv(0) --Stores the fenv before we call any mock methods so we can reset it if needed
@@ -13,6 +13,7 @@ local GlobalEnv = getfenv(0) --Stores the fenv before we call any mock methods s
 if not RS:IsStudio() then error("This module can only be run from studio!") return {} end
 --Internal functions
 function CreateFenv(functionToPatch:string, returnValues:{any})
+	--This effectivelty is duplicating the tree from the game constant down to the function to patch
 	--Parse the functionToPatch, separating by "."
 	local path = string.split(functionToPatch, ".")
 	--Prepare the global fenv table
@@ -71,7 +72,7 @@ function CreateFenv(functionToPatch:string, returnValues:{any})
 				---ie UseMetatable is toggled to true
 				if #returnValues == 1 and type(returnValues[1]) == "table" then
 					local tableMetatable = getmetatable(returnValues[1])
-					if tableMetatable ~= nil and tableMetatable.__call ~= nil then UseMetatable = true end
+					if tableMetatable ~= nil and tableMetatable.__call ~= nil then UseMetatable = false end --Okay maybe we won't have this for now
 				end
 				if UseMetatable then
 					CurrentNode[CurrentKey] = returnValues[1]
@@ -174,8 +175,7 @@ function AddToFenv(functionToPatch:string, returnValues:{any}, depth:number|nil)
 		--If the CurrentPath doesn't exist in CurrentEnv then we check what the type of it is
 		--print(GlobalEnv, CurrentEnv)
 		if typeof(GlobalEnv[CurrentPath]) == "table" or type(GlobalEnv[CurrentPath]) == "userdata" then
-			--print("t")
-			if i ~= #path then
+			if i ~= #path then --If we're not at the end of the path
 				--Create a table to mock the environment we're replicating
 				---Essentially just copying the code we wrote for CreateFenv
 				local PatchMetatable = {__index = function(self, key) if rawget(self, key) == nil then return GlobalEnv[key] else return self[key] end end}
@@ -193,6 +193,14 @@ function AddToFenv(functionToPatch:string, returnValues:{any}, depth:number|nil)
 			end
 		elseif typeof(GlobalEnv[CurrentPath]) == "function" then
 			--print("f")
+			--If the length of returnValues is 1 and the singular return value is a table, has the __call metamethod defined then just patch that in instead of using an iterator function
+			if #returnValues == 1 and typeof(returnValues[1]) == "table" then
+				local mt = getmetatable(returnValues[1])
+				if mt.__call ~= nil then
+					rawset(CurrentEnv, CurrentPath, returnValues[1])
+					return
+				end
+			end
 			rawset(CurrentEnv, CurrentPath, returnFunction)
 		else
 			--print("c")
@@ -210,16 +218,16 @@ function AddToFenv(functionToPatch:string, returnValues:{any}, depth:number|nil)
 	end
 end
 --Instance methods
-function m.Mock(functionToPatch:string, returnValues:{any}, depth:nil|number)
+function m.Mock(functionToPatch:string, returnValues:{any}, depth:number?)
 	if type(functionToPatch)  ~= "string" then error("Must provide the path as a strting") return end
 	depth = depth or 2
 	--If a patch is already active, just add the new function we want to patch over
 	if getfenv(depth)._Mock ~= nil then
-		AddToFenv(functionToPatch, returnValues, depth+1)
+		AddToFenv(functionToPatch, returnValues, (depth::number)+1)
 	else
 		--Otherwise create a new fenv and set it
 		local fenv = CreateFenv(functionToPatch, returnValues)
-		setfenv(depth, fenv)
+		setfenv(depth::number, fenv)
 		return fenv
 	end
 end
@@ -303,10 +311,34 @@ function m.MockService(ServiceName:string, depth:number|nil):MockedService --Thi
 	else
 		--If the fenv(2) is already patched we just add another service to it
 		local CurrentEnv = getfenv(depth::number)
-		--If somehow these are nil then uhhhhhhhhh
-		if CurrentEnv.game == nil or CurrentEnv.game.GetService == nil then return PatchInterface end
-		--Check if the service is already patched
-		if rawget(CurrentEnv.game.GetService, ServiceName) ~= nil then error(`{ServiceName} has already been patched!`) return PatchInterface end
+		--If the game and GetService isn't patched then patch it over before continuing
+		if rawget(CurrentEnv, "game") == nil or rawget(CurrentEnv.game, "GetService") == nil then
+			local MockedService =  setmetatable(PatchedService,PatchedServiceMetatable)
+			local GetServiceMock = setmetatable({
+				--Then insert the metatable into GetService
+				[ServiceName] = MockedService,
+			},
+			{__call = function(self, ...)
+				local args = {...}
+				if rawget(self,args[2]) ~= nil then
+					--print(`Mocking {args[2]}`)
+					return rawget(self,args[2])
+				else
+					--print("Fetching original")
+					return UnpatchedGetService(GlobalEnv.game, args[2])
+				end
+			end,})
+
+			m.Mock("game.GetService", {GetServiceMock}, depth::number + 1) --Since we're going one more level down in the stack we add 1 to our current depth
+			--Then also add it to game directly since we can also do stuff like game.Players
+			m.Mock("game."..ServiceName, {MockedService}, depth::number + 1)
+		else
+			--If somehow these are nil then uhhhhhhhhh
+			if CurrentEnv.game == nil or CurrentEnv.game.GetService == nil then return PatchInterface end
+			--Check if the service is already patched
+			if rawget(CurrentEnv.game.GetService, ServiceName) ~= nil then error(`{ServiceName} has already been patched!`) return PatchInterface end
+		end
+		print(CurrentEnv)
 		--Insert the PatchedService 
 		local MockedService = setmetatable(PatchedService, PatchedServiceMetatable)
 		rawset(CurrentEnv.game.GetService, ServiceName,MockedService)
